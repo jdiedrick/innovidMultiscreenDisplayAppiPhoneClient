@@ -73,9 +73,14 @@ public:
     void downloadVideos();
     
     ofURLFileLoader fileloader;
-    void urlResponse(ofHttpResponse & response);
+    void urlResponse(ofHttpResponse & httpResponse);
     
     void changeVideo(string video);
+    
+    UIActivityIndicatorView *indicator;
+    
+    int videosDownloaded;
+    int numVideosToGet;
     
     
 };

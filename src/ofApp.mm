@@ -32,6 +32,8 @@ void ofApp::setup(){
     //load json
     loadJSON();
     
+    videosDownloaded = 0;
+    
 }
 
 //--------------------------------------------------------------
@@ -135,10 +137,10 @@ void ofApp::setupUI()
     gui = new ofxUICanvas(0, 0, 320, 320);
     //gui->setColorBack(ofColor(127));
     gui->setFont("GUI/NewMedia Fett.ttf");
-    gui->addButton("Download videos", false, 44, 44);
-    gui->addButton("Update JSON", false, 44, 44);
+    //gui->addButton("Download videos", false, 44, 44);
+    gui->addButton("Update videos", false, 44, 44);
     vector<string> names;
-    names.push_back("Default Video");
+    names.push_back("-");
     ddl = gui->addDropDownList("SELECT A VIDEO", names);
     ddl->addToggle(ofGetTimestampString());
     ddl->setAutoClose(true);
@@ -166,7 +168,7 @@ void ofApp::guiEvent(ofxUIEventArgs &e)
         //cout << name << "\t value: " << button->getValue() << endl;
     }
     
-    else if(name == "Update JSON")
+    else if(name == "Update videos")
     {
         ofxUIButton *button = (ofxUIButton *) e.widget;
         //setupOSC();
@@ -184,7 +186,17 @@ void ofApp::guiEvent(ofxUIEventArgs &e)
         for(int i = 0; i < selected.size(); i++)
         {
             cout << "SELECTED: " << selected[i]->getName() << endl;
+            
+            if (selected[i]->getName() == "iphone.mov") { // special case for prebundled video
+                player.stop();
+                player.loadMovie("movies/iphone.mov");
+                player.play();
+            }else if (selected[i]->getName() == "-") { // special case for prebundled video
+                continue;
+            }else{
             changeVideo(selected[i]->getName());
+            }
+            
         }
     }
 }
@@ -201,8 +213,10 @@ void ofApp::drawDebug(){
 
 //--------------------------------------------------------------
 void ofApp::updateDDL(){
+    cout << "updating ddl" << endl;
     //clear toggles
     ddl->clearToggles();
+    //ddl->addToggle("iphone.mov");
     //update our dropdown box with the videos
     for (int i=0; i<response["videos"].size(); i++){
         ddl->addToggle(response["videos"][i]["filename"].asString());
@@ -226,21 +240,30 @@ void ofApp::getJSON(){
 	}else{
         gotJSON = true;
         ss.str(std::string()); // clear string stream
-        
-        //save json file
-        //std::string json_final_path =ofToDataPath("json/innovid_videos.json", true);
-        //string command = "mkdir "+ofToDataPath("json", true);
-        //ofSystemCall(command);
-        //command = "curl -o "+json_final_path+ " " + url;
-        //ofSystemCall(command);
+        cout << "Got JSON..." << endl;
         
         ofFile file(ofxiPhoneGetDocumentsDirectory() +"innovid_videos.json",ofFile::WriteOnly);
         file << response.getRawString();
         file.close();
         
-        updateJSONDebug();
-        updateDDL();
-        downloadVideos();
+        //updateJSONDebug();
+        string json_file_path = ofxiPhoneGetDocumentsDirectory() +"innovid_videos.json";
+        std::string filePath = json_file_path;
+        bool parsingSuccessful = response.open(filePath);
+        
+        if (parsingSuccessful) {
+            cout  << "Parsing successful" << endl;
+
+           //updateJSONDebug();
+            updateDDL();
+            downloadVideos();
+        } else {
+            cout  << "Failed to parse JSON" << endl;
+        }
+
+        
+        //updateDDL();
+        //downloadVideos();
     }
 }
 
@@ -280,6 +303,8 @@ void ofApp::loadJSON(){
         //could do automatically, but maybe not good if you're not online
         
         cout << "json file doesn't exist, lets try to download it" << endl;
+        getJSON();
+        
         
     }else if( json.doesFileExist(json_file_path, false) ){
         
@@ -302,6 +327,16 @@ void ofApp::loadJSON(){
 
 //--------------------------------------------------------------
 void ofApp::downloadVideos(){
+    
+    indicator = [[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    indicator.frame = CGRectMake(0.0, 0.0, 40.0, 40.0);
+    CGPoint p;
+    p = ofxiPhoneGetGLView().center;
+    indicator.center = p;
+    [ofxiPhoneGetGLView() addSubview:indicator];
+    [indicator bringSubviewToFront:ofxiPhoneGetGLView()];
+    [indicator startAnimating];
+    
     cout << "downloading videos" << endl;
     //ofLoadURLAsync("https://s3.amazonaws.com/innovid_multiscreen/1013-test-iphone.mov","async_req");
     
@@ -320,6 +355,7 @@ void ofApp::downloadVideos(){
      
      fileloader.saveAsync(video_url, video_final_path);
      cout << "downloading video number: " << i  << " url: " << video_url << " final path: " << video_final_path << endl;
+         numVideosToGet++;
      
      }
      
@@ -331,15 +367,24 @@ void ofApp::downloadVideos(){
 
 //---
 
-void ofApp::urlResponse(ofHttpResponse & response) {
-    if (response.status==200) {
+void ofApp::urlResponse(ofHttpResponse & httpResponse) {
+    if (httpResponse.status==200) {
         cout << "good response" << endl;
+        videosDownloaded++;
+        if(videosDownloaded == numVideosToGet){
+            cout << "we have downloaded all of our videos!" << endl;
+           [indicator stopAnimating];
+           // [indicator removeFromSuperview];
+            
+        }
         //img.loadImage(response.data);
         //loading = false;
     } else {
-        cout << response.status << " " << response.error << endl;
+        cout << httpResponse.status << " " << httpResponse.error << endl;
         //if (response.status != -1) loading = false;
     }
+    
+ 
 }
 
 //--------------------------------------------------------------
