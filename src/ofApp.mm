@@ -232,7 +232,9 @@ void ofApp::updateDDL(){
     //ddl->addToggle("iphone.mov");
     //update our dropdown box with the videos
     for (int i=0; i<response["videos"].size(); i++){
+        if (response["videos"][i]["tag"].asString() == "iPhone") { //if the video is tagged for iphone...
         ddl->addToggle(response["videos"][i]["filename"].asString());
+        }
     }
 }
 
