@@ -35,6 +35,7 @@ public:
     //void downloadVideos();
     //void changeVideo(string video);
     
+    
     ofxOscReceiver receiver;
     
     int current_msg_string;
@@ -82,6 +83,7 @@ public:
     int videosDownloaded;
     int numVideosToGet;
     
+    bool drawLoading;
     
 };
 

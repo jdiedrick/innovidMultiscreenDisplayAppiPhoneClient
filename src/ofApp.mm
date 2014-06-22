@@ -33,6 +33,8 @@ void ofApp::setup(){
     loadJSON();
     
     videosDownloaded = 0;
+    //numVideosToGet = 0;
+    
     
 }
 
@@ -64,10 +66,21 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-    player.draw(0, 0, 320, 480);
+    //player.draw(0, 0, 320, 480); //iphone 4
+    player.draw(0, 0, 320, 640); //iphone 5
     if(debug){
        // drawDebug();
     }
+    
+    if(drawLoading) {
+        ofPushStyle();
+        ofSetColor(255, 255, 255, 127);
+        ofRect(0,0,ofGetWidth(),ofGetHeight());
+        ofPopStyle();
+        string vid_dl_string = "Downloaded " + ofToString(videosDownloaded, 2) + " of " + ofToString(numVideosToGet, 2)  + " videos. Please wait!";
+        ofDrawBitmapString(vid_dl_string, 0 ,ofGetHeight()/2);
+    }
+    //cout << "draw loading? : " << drawLoading << endl;
 }
 
 //--------------------------------------------------------------
@@ -328,41 +341,26 @@ void ofApp::loadJSON(){
 //--------------------------------------------------------------
 void ofApp::downloadVideos(){
     
-    indicator = [[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    indicator.frame = CGRectMake(0.0, 0.0, 40.0, 40.0);
-    CGPoint p;
-    p = ofxiPhoneGetGLView().center;
-    indicator.center = p;
-    [ofxiPhoneGetGLView() addSubview:indicator];
-    [indicator bringSubviewToFront:ofxiPhoneGetGLView()];
-    [indicator startAnimating];
-    
-    cout << "downloading videos" << endl;
-    //ofLoadURLAsync("https://s3.amazonaws.com/innovid_multiscreen/1013-test-iphone.mov","async_req");
-    
-     for (int i=0; i<response["videos"].size(); i++){
-     
-     ofFile video;
-     string video_url = response["videos"][i]["link"].asString();
-     string video_filename = response["videos"][i]["filename"].asString();
-     string video_final_path = ofxiPhoneGetDocumentsDirectory() + video_filename;
-     
-     
-     if (!video.doesFileExist(video_final_path)) {
-     
-     //string command = "curl -o "+video_final_path+ " " + video_url;
-     //ofSystemCall(command);
-     
-     fileloader.saveAsync(video_url, video_final_path);
-     cout << "downloading video number: " << i  << " url: " << video_url << " final path: " << video_final_path << endl;
-         numVideosToGet++;
-     
+     for (int i=0; i<response["videos"].size(); i++){ // loop through all the videos
+         
+         if (response["videos"][i]["tag"].asString() == "iPhone") { //if the video is tagged for iphone...
+         
+             //set up a file for the video, a url to get it, a file name/path to save it
+             ofFile video;
+             string video_url = response["videos"][i]["link"].asString();
+             string video_filename = response["videos"][i]["filename"].asString();
+             string video_final_path = ofxiPhoneGetDocumentsDirectory() + video_filename;
+             
+             if (!video.doesFileExist(video_final_path)) { // if we don't already have the video...
+                 drawLoading = true;
+                 numVideosToGet++;
+                 fileloader.saveAsync(video_url, video_final_path); // download it
+                 cout << "downloading video number: " << i  << " url: " << video_url << " final path: " << video_final_path << " num vids to get " << numVideosToGet << endl;
+                 cout << "draw loading? : " << drawLoading << endl;
+             }
+             
+         }
      }
-     
-     
-     }
-    
-    
 }
 
 //---
@@ -370,13 +368,16 @@ void ofApp::downloadVideos(){
 void ofApp::urlResponse(ofHttpResponse & httpResponse) {
     if (httpResponse.status==200) {
         cout << "good response" << endl;
+        //[indicator stopAnimating];
         videosDownloaded++;
         if(videosDownloaded == numVideosToGet){
             cout << "we have downloaded all of our videos!" << endl;
-           [indicator stopAnimating];
+            drawLoading = false;
+           //[indicator stopAnimating];
            // [indicator removeFromSuperview];
-            
         }
+        
+        cout << "videos downloaded: " << videosDownloaded  << " num videos to get " << numVideosToGet << endl;
         //img.loadImage(response.data);
         //loading = false;
     } else {
